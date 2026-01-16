@@ -13,6 +13,7 @@ import net.minecraft.world.biome.WorldChunkManager;
 
 import gnu.trove.map.hash.TLongObjectHashMap;
 import rwg.biomes.realistic.RealisticBiomeBase;
+import rwg.config.ConfigRWG;
 import rwg.support.Support;
 import rwg.util.CellNoise;
 import rwg.util.NoiseGenerator;
@@ -41,8 +42,16 @@ public class ChunkManagerRealistic extends WorldChunkManager {
     private int biomes_smallLength;
     private int biomes_testLength;
 
+    private boolean snowEnabled;
+    private boolean coldEnabled;
+    private boolean hotEnabled;
     private boolean wetEnabled;
     private boolean smallEnabled;
+
+    // Dynamic thresholds for category selection
+    private float snowThreshold;
+    private float coldThreshold;
+    private float hotThreshold;
 
     private float[] borderNoise;
 
@@ -68,51 +77,57 @@ public class ChunkManagerRealistic extends WorldChunkManager {
         biomes_small = new ArrayList<RealisticBiomeBase>();
         biomes_test = new ArrayList<RealisticBiomeBase>();
 
-        biomes_snow.add(RealisticBiomeBase.polar);
-        biomes_snow.add(RealisticBiomeBase.snowHills);
-        biomes_snow.add(RealisticBiomeBase.snowRivers);
-        biomes_snow.add(RealisticBiomeBase.snowLakes);
-        biomes_snow.add(RealisticBiomeBase.redwoodSnow);
+        // Snow biomes - conditionally add based on config
+        addIfEnabled(biomes_snow, RealisticBiomeBase.polar);
+        addIfEnabled(biomes_snow, RealisticBiomeBase.snowHills);
+        addIfEnabled(biomes_snow, RealisticBiomeBase.snowRivers);
+        addIfEnabled(biomes_snow, RealisticBiomeBase.snowLakes);
+        addIfEnabled(biomes_snow, RealisticBiomeBase.redwoodSnow);
 
-        biomes_cold.add(RealisticBiomeBase.tundraHills);
-        biomes_cold.add(RealisticBiomeBase.tundraPlains);
-        biomes_cold.add(RealisticBiomeBase.taigaHills);
-        biomes_cold.add(RealisticBiomeBase.taigaPlains);
-        biomes_cold.add(RealisticBiomeBase.redwood);
-        biomes_cold.add(RealisticBiomeBase.darkRedwood);
-        biomes_cold.add(RealisticBiomeBase.darkRedwoodPlains);
-        biomes_cold.add(RealisticBiomeBase.woodhills);
-        biomes_cold.add(RealisticBiomeBase.woodmountains);
+        // Cold biomes - conditionally add based on config
+        addIfEnabled(biomes_cold, RealisticBiomeBase.tundraHills);
+        addIfEnabled(biomes_cold, RealisticBiomeBase.tundraPlains);
+        addIfEnabled(biomes_cold, RealisticBiomeBase.taigaHills);
+        addIfEnabled(biomes_cold, RealisticBiomeBase.taigaPlains);
+        addIfEnabled(biomes_cold, RealisticBiomeBase.redwood);
+        addIfEnabled(biomes_cold, RealisticBiomeBase.darkRedwood);
+        addIfEnabled(biomes_cold, RealisticBiomeBase.darkRedwoodPlains);
+        addIfEnabled(biomes_cold, RealisticBiomeBase.woodhills);
+        addIfEnabled(biomes_cold, RealisticBiomeBase.woodmountains);
 
-        biomes_cold.add(RealisticBiomeBase.woodhills);
-        biomes_cold.add(RealisticBiomeBase.woodmountains);
+        // Add woodhills and woodmountains again for weighting
+        addIfEnabled(biomes_cold, RealisticBiomeBase.woodhills);
+        addIfEnabled(biomes_cold, RealisticBiomeBase.woodmountains);
 
-        biomes_hot.add(RealisticBiomeBase.duneValleyForest);
-        biomes_hot.add(RealisticBiomeBase.savanna);
-        biomes_hot.add(RealisticBiomeBase.savannaForest);
-        biomes_hot.add(RealisticBiomeBase.savannaDunes);
-        biomes_hot.add(RealisticBiomeBase.stoneMountains);
-        biomes_hot.add(RealisticBiomeBase.stoneMountainsCactus);
-        biomes_hot.add(RealisticBiomeBase.hotForest);
-        biomes_hot.add(RealisticBiomeBase.hotRedwood);
-        biomes_hot.add(RealisticBiomeBase.canyonForest);
-        biomes_hot.add(RealisticBiomeBase.mesaPlains);
-        biomes_hot.add(RealisticBiomeBase.desert);
-        biomes_hot.add(RealisticBiomeBase.desertMountains);
-        biomes_hot.add(RealisticBiomeBase.duneValley);
-        biomes_hot.add(RealisticBiomeBase.oasis);
-        biomes_hot.add(RealisticBiomeBase.redDesertMountains);
-        biomes_hot.add(RealisticBiomeBase.redDesertOasis);
-        biomes_hot.add(RealisticBiomeBase.canyon);
-        biomes_hot.add(RealisticBiomeBase.mesa);
+        // Hot biomes - conditionally add based on config
+        addIfEnabled(biomes_hot, RealisticBiomeBase.duneValleyForest);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.savanna);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.savannaForest);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.savannaDunes);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.stoneMountains);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.stoneMountainsCactus);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.hotForest);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.hotRedwood);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.canyonForest);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.mesaPlains);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.desert);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.desertMountains);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.duneValley);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.oasis);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.redDesertMountains);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.redDesertOasis);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.canyon);
+        addIfEnabled(biomes_hot, RealisticBiomeBase.mesa);
 
-        biomes_snow.addAll(Support.biomes_snow);
-        biomes_cold.addAll(Support.biomes_cold);
-        biomes_hot.addAll(Support.biomes_hot);
-        biomes_wet.addAll(Support.biomes_wet);
-        biomes_small.addAll(Support.biomes_small);
+        // Add mod biomes from Support (filtered by category toggle)
+        if (ConfigRWG.enableSnowBiomes) biomes_snow.addAll(Support.biomes_snow);
+        if (ConfigRWG.enableColdBiomes) biomes_cold.addAll(Support.biomes_cold);
+        if (ConfigRWG.enableHotBiomes) biomes_hot.addAll(Support.biomes_hot);
+        if (ConfigRWG.enableWetBiomes) biomes_wet.addAll(Support.biomes_wet);
+        if (ConfigRWG.enableSmallBiomes) biomes_small.addAll(Support.biomes_small);
         biomes_test.addAll(Support.biomes_test);
 
+        // Update lengths
         biomes_snowLength = biomes_snow.size();
         biomes_coldLength = biomes_cold.size();
         biomes_hotLength = biomes_hot.size();
@@ -120,15 +135,76 @@ public class ChunkManagerRealistic extends WorldChunkManager {
         biomes_smallLength = biomes_small.size();
         biomes_testLength = biomes_test.size();
 
-        wetEnabled = false;
-        if (biomes_wetLength > 0) {
-            wetEnabled = true;
+        // Determine enabled categories based on config AND non-empty lists
+        snowEnabled = ConfigRWG.enableSnowBiomes && biomes_snowLength > 0;
+        coldEnabled = ConfigRWG.enableColdBiomes && biomes_coldLength > 0;
+        hotEnabled = ConfigRWG.enableHotBiomes && biomes_hotLength > 0;
+        wetEnabled = ConfigRWG.enableWetBiomes && biomes_wetLength > 0;
+        smallEnabled = ConfigRWG.enableSmallBiomes && biomes_smallLength > 1;
+
+        // Calculate dynamic thresholds for even category distribution
+        calculateThresholds();
+    }
+
+    private void addIfEnabled(ArrayList<RealisticBiomeBase> list, RealisticBiomeBase biome) {
+        if (ConfigRWG.isBiomeEnabled(biome)) {
+            list.add(biome);
+        }
+    }
+
+    private void calculateThresholds() {
+        int enabledCount = 0;
+        if (snowEnabled) enabledCount++;
+        if (coldEnabled) enabledCount++;
+        if (hotEnabled) enabledCount++;
+        if (wetEnabled) enabledCount++;
+
+        // Fallback: if no categories enabled, force hot enabled
+        if (enabledCount == 0) {
+            if (biomes_hotLength > 0) {
+                hotEnabled = true;
+            } else if (biomes_coldLength > 0) {
+                coldEnabled = true;
+            } else if (biomes_snowLength > 0) {
+                snowEnabled = true;
+            } else if (biomes_wetLength > 0) {
+                wetEnabled = true;
+            }
+            enabledCount = 1;
         }
 
-        smallEnabled = false;
-        if (biomes_smallLength > 1) {
-            smallEnabled = true;
+        float share = 1.0f / enabledCount;
+        float current = 0f;
+
+        // Calculate cumulative thresholds for each enabled category
+        snowThreshold = snowEnabled ? (current += share) : current;
+        coldThreshold = coldEnabled ? (current += share) : current;
+        hotThreshold = hotEnabled ? (current += share) : current;
+        // wet gets remainder (implicitly up to 1.0)
+    }
+
+    private RealisticBiomeBase selectBiomeFromCategory(int par1, int par2, float categoryNoise) {
+        float h = (biomecell.noise(par1 / 450D, par2 / 450D, 1D) * 0.5f) + 0.5f;
+        h = h < 0f ? 0f : h >= 0.9999999f ? 0.9999999f : h;
+
+        // Select category based on dynamic thresholds
+        if (snowEnabled && categoryNoise < snowThreshold) {
+            h *= biomes_snowLength;
+            return biomes_snow.get((int) (h));
+        } else if (coldEnabled && categoryNoise < coldThreshold) {
+            h *= biomes_coldLength;
+            return biomes_cold.get((int) (h));
+        } else if (hotEnabled && categoryNoise < hotThreshold) {
+            h *= biomes_hotLength;
+            return biomes_hot.get((int) (h));
+        } else if (wetEnabled) {
+            h *= biomes_wetLength;
+            return biomes_wet.get((int) (h));
         }
+
+        // Fallback to hot biomes (should not reach here if thresholds are correct)
+        h *= biomes_hotLength;
+        return biomes_hot.get((int) (h));
     }
 
     public int[] getBiomesGens(int par1, int par2, int par3, int par4) {
@@ -232,42 +308,16 @@ public class ChunkManagerRealistic extends WorldChunkManager {
         float b = (biomecell.noise((par1 + 4000f) / 1200D, par2 / 1200D, 1D) * 0.5f) + 0.5f;
         b = b < 0f ? 0f : b >= 0.9999999f ? 0.9999999f : b;
 
+        // Check for small biomes first (highest priority)
         float s = smallEnabled ? (biomecell.noise(par1 / 140D, par2 / 140D, 1D) * 0.5f) + 0.5f : 0f;
         if (smallEnabled && s > 0.975f) {
             float h = (s - 0.975f) * 40f;
             h = h < 0f ? 0f : h >= 0.9999999f ? 0.9999999f : h;
             h *= biomes_smallLength;
             output = biomes_small.get((int) (h));
-        } else if ((wetEnabled && b < 0.25f) || (!wetEnabled && b < 0.33f)) {
-            float h = (biomecell.noise(par1 / 450D, par2 / 450D, 1D) * 0.5f) + 0.5f;
-            h = h < 0f ? 0f : h >= 0.9999999f ? 0.9999999f : h;
-
-            h *= biomes_snowLength;
-            output = biomes_snow.get((int) (h));
-        } else if ((wetEnabled && b < 0.50f) || (!wetEnabled && b < 0.66f)) {
-            float h = (biomecell.noise(par1 / 450D, par2 / 450D, 1D) * 0.5f) + 0.5f;
-            h = h < 0f ? 0f : h >= 0.9999999f ? 0.9999999f : h;
-
-            h *= biomes_coldLength;
-            output = biomes_cold.get((int) (h));
-        } else if ((wetEnabled && b < 0.75f) || (!wetEnabled && b < 1f)) {
-            float h = (biomecell.noise(par1 / 450D, par2 / 450D, 1D) * 0.5f) + 0.5f;
-            h = h < 0f ? 0f : h >= 0.9999999f ? 0.9999999f : h;
-
-            h *= biomes_hotLength;
-            output = biomes_hot.get((int) (h));
-        } else if (wetEnabled) {
-            float h = (biomecell.noise(par1 / 450D, par2 / 450D, 1D) * 0.5f) + 0.5f;
-            h = h < 0f ? 0f : h >= 0.9999999f ? 0.9999999f : h;
-
-            h *= biomes_wetLength;
-            output = biomes_wet.get((int) (h));
         } else {
-            float h = (biomecell.noise(par1 / 450D, par2 / 450D, 1D) * 0.5f) + 0.5f;
-            h = h < 0f ? 0f : h >= 0.9999999f ? 0.9999999f : h;
-
-            h *= biomes_hotLength;
-            output = biomes_hot.get((int) (h));
+            // Use dynamic thresholds for category selection
+            output = selectBiomeFromCategory(par1, par2, b);
         }
 
         if (biomeDataMap.size() > 4096) {

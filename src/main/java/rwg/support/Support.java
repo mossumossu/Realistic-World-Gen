@@ -4,6 +4,7 @@ import java.util.ArrayList;
 
 import cpw.mods.fml.common.Loader;
 import rwg.biomes.realistic.RealisticBiomeBase;
+import rwg.config.ConfigRWG;
 
 public class Support {
 
@@ -50,19 +51,30 @@ public class Support {
 
     public static void addBiome(RealisticBiomeSupport b, BiomeCategory cat) {
         try {
+            // Check if this biome is enabled in config
+            if (!ConfigRWG.isModBiomeEnabled(b.baseBiome.biomeName)) {
+                return;
+            }
+
             switch (cat) {
                 case SNOW:
                     biomes_snow.add(b);
+                    break;
                 case COLD:
                     biomes_cold.add(b);
+                    break;
                 case HOT:
                     biomes_hot.add(b);
+                    break;
                 case WET:
                     biomes_wet.add(b);
+                    break;
                 case SMALL:
                     biomes_small.add(b);
+                    break;
                 case TEST:
                     biomes_test.add(b);
+                    break;
             }
         } catch (Error e) {
             System.out.println("RWG Support: failed to add biome");
