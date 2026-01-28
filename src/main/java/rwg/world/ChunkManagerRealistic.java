@@ -13,6 +13,7 @@ import net.minecraft.world.biome.WorldChunkManager;
 
 import gnu.trove.map.hash.TLongObjectHashMap;
 import rwg.biomes.realistic.RealisticBiomeBase;
+import rwg.config.ConfigRWG;
 import rwg.support.Support;
 import rwg.util.CellNoise;
 import rwg.util.NoiseGenerator;
@@ -131,6 +132,94 @@ public class ChunkManagerRealistic extends WorldChunkManager {
         }
     }
 
+    /**
+     * Calculates the climate band category noise based on Z-coordinate. Maps Z position to category noise values for
+     * latitude-based biome distribution.
+     *
+     * @param z             The Z-coordinate (north-south axis)
+     * @param existingNoise The existing noise value to use when climate bands are disabled
+     * @return A noise value in the range 0.0-1.0 that maps to biome categories
+     */
+    private float getClimateBandCategoryNoise(int z, float existingNoise) {
+        if (!ConfigRWG.enableClimateBands) {
+            return existingNoise;
+        }
+
+        // Use absolute Z for symmetric calculation from spawn
+        int absZ = Math.abs(z);
+
+        // Calculate cumulative band boundaries (half sizes since symmetric)
+        int wetEnd = ConfigRWG.climateBandWetSize / 2;
+        int hotEnd = wetEnd + ConfigRWG.climateBandHotSize;
+        int coldEnd = hotEnd + ConfigRWG.climateBandColdSize;
+
+        int transitionWidth = ConfigRWG.climateBandTransitionWidth;
+
+        // Category noise values (midpoints of each threshold range)
+        // SNOW: 0.0 - 0.25 -> midpoint 0.125
+        // COLD: 0.25 - 0.50 -> midpoint 0.375
+        // HOT: 0.50 - 0.75 -> midpoint 0.625
+        // WET: 0.75 - 1.0 -> midpoint 0.875
+        final float SNOW_VALUE = 0.125f;
+        final float COLD_VALUE = 0.375f;
+        final float HOT_VALUE = 0.625f;
+        final float WET_VALUE = 0.875f;
+
+        float categoryValue;
+
+        if (absZ < wetEnd) {
+            // In WET zone
+            if (transitionWidth > 0 && absZ > wetEnd - transitionWidth) {
+                // Transition from WET to HOT
+                float t = (float) (absZ - (wetEnd - transitionWidth)) / transitionWidth;
+                categoryValue = WET_VALUE + (HOT_VALUE - WET_VALUE) * t;
+            } else {
+                categoryValue = WET_VALUE;
+            }
+        } else if (absZ < hotEnd) {
+            // In HOT zone
+            if (transitionWidth > 0 && absZ < wetEnd + transitionWidth) {
+                // Transition from WET to HOT (continuing from wet side)
+                float t = (float) (absZ - wetEnd) / transitionWidth;
+                categoryValue = WET_VALUE + (HOT_VALUE - WET_VALUE) * (0.5f + t * 0.5f);
+            } else if (transitionWidth > 0 && absZ > hotEnd - transitionWidth) {
+                // Transition from HOT to COLD
+                float t = (float) (absZ - (hotEnd - transitionWidth)) / transitionWidth;
+                categoryValue = HOT_VALUE + (COLD_VALUE - HOT_VALUE) * t;
+            } else {
+                categoryValue = HOT_VALUE;
+            }
+        } else if (absZ < coldEnd) {
+            // In COLD zone
+            if (transitionWidth > 0 && absZ < hotEnd + transitionWidth) {
+                // Transition from HOT to COLD (continuing from hot side)
+                float t = (float) (absZ - hotEnd) / transitionWidth;
+                categoryValue = HOT_VALUE + (COLD_VALUE - HOT_VALUE) * (0.5f + t * 0.5f);
+            } else if (transitionWidth > 0 && absZ > coldEnd - transitionWidth) {
+                // Transition from COLD to SNOW
+                float t = (float) (absZ - (coldEnd - transitionWidth)) / transitionWidth;
+                categoryValue = COLD_VALUE + (SNOW_VALUE - COLD_VALUE) * t;
+            } else {
+                categoryValue = COLD_VALUE;
+            }
+        } else {
+            // In SNOW zone (extends to world edge)
+            if (transitionWidth > 0 && absZ < coldEnd + transitionWidth) {
+                // Transition from COLD to SNOW (continuing from cold side)
+                float t = (float) (absZ - coldEnd) / transitionWidth;
+                categoryValue = COLD_VALUE + (SNOW_VALUE - COLD_VALUE) * (0.5f + t * 0.5f);
+            } else {
+                categoryValue = SNOW_VALUE;
+            }
+        }
+
+        // Add small noise variation for natural feel (+/- 0.05, staying within category bounds)
+        float variation = (existingNoise - 0.5f) * 0.1f;
+        categoryValue = Math.max(0.001f, Math.min(0.999f, categoryValue + variation));
+
+        return categoryValue;
+    }
+
     public int[] getBiomesGens(int par1, int par2, int par3, int par4) {
         int[] d = new int[par3 * par4];
 
@@ -231,6 +320,9 @@ public class ChunkManagerRealistic extends WorldChunkManager {
 
         float b = (biomecell.noise((par1 + 4000f) / 1200D, par2 / 1200D, 1D) * 0.5f) + 0.5f;
         b = b < 0f ? 0f : b >= 0.9999999f ? 0.9999999f : b;
+
+        // Apply climate band modification (par2 is the Z-coordinate)
+        b = getClimateBandCategoryNoise(par2, b);
 
         float s = smallEnabled ? (biomecell.noise(par1 / 140D, par2 / 140D, 1D) * 0.5f) + 0.5f : 0f;
         if (smallEnabled && s > 0.975f) {

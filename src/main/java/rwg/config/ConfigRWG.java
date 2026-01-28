@@ -18,6 +18,14 @@ public class ConfigRWG {
     public static boolean generateUndergroundLavaLakes = true;
     public static boolean generateLargeThaumcraftBiomes = false;
 
+    // Climate Band Settings
+    public static boolean enableClimateBands = false;
+    public static int climateBandWetSize = 5000;
+    public static int climateBandHotSize = 5000;
+    public static int climateBandColdSize = 10000;
+    public static int climateBandSnowSize = 5000;
+    public static int climateBandTransitionWidth = 500;
+
     public static void init(FMLPreInitializationEvent event) {
         config = new Configuration(event.getSuggestedConfigurationFile());
         for (int c = 0; c < biomeIDs.length; c++) {
@@ -62,6 +70,48 @@ public class ConfigRWG {
             generateUndergroundLavaLakes = config.getBoolean("Generate Underground Lava Lakes", "Settings", true, "");
             generateLargeThaumcraftBiomes = config
                     .getBoolean("Generate large Thaumcraft biomes", "Settings", false, "");
+
+            // Climate Band Settings
+            enableClimateBands = config.getBoolean(
+                    "Enable Climate Bands",
+                    "Climate Bands",
+                    false,
+                    "When enabled, biome categories are distributed based on Z-coordinate distance from spawn (0,0). Creates latitude-like climate zones.");
+            climateBandWetSize = config.getInt(
+                    "Wet Band Size",
+                    "Climate Bands",
+                    5000,
+                    1000,
+                    50000,
+                    "Size of the tropical/wet zone centered at Z=0 (in blocks)");
+            climateBandHotSize = config.getInt(
+                    "Hot Band Size",
+                    "Climate Bands",
+                    5000,
+                    1000,
+                    50000,
+                    "Size of the hot/savanna zone on each side of the wet zone (in blocks)");
+            climateBandColdSize = config.getInt(
+                    "Cold Band Size",
+                    "Climate Bands",
+                    10000,
+                    1000,
+                    50000,
+                    "Size of the cold/temperate zone on each side of the hot zone (in blocks)");
+            climateBandSnowSize = config.getInt(
+                    "Snow Band Size",
+                    "Climate Bands",
+                    5000,
+                    1000,
+                    50000,
+                    "Minimum size of the snow/polar zone (extends to world edge)");
+            climateBandTransitionWidth = config.getInt(
+                    "Transition Width",
+                    "Climate Bands",
+                    500,
+                    0,
+                    2000,
+                    "Width of the transition zone between climate bands (in blocks). Set to 0 for sharp borders.");
 
         } catch (Exception e) {
             for (int c = 0; c < biomeIDs.length; c++) {
